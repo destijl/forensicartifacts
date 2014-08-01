@@ -1,0 +1,45 @@
+<html ng-app="Artifact">
+  <head>
+  <!-- Latest compiled and minified CSS -->
+  <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap.min.css">
+
+  <!-- Optional theme -->
+  <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap-theme.min.css">
+
+  <!-- Latest compiled and minified JavaScript -->
+  <script src="//maxcdn.bootstrapcdn.com/bootstrap/3.2.0/js/bootstrap.min.js"></script>
+
+  <script src="//ajax.googleapis.com/ajax/libs/angularjs/1.2.12/angular.js"></script>
+  <script src="//ajax.googleapis.com/ajax/libs/angularjs/1.2.12/angular-animate.js"></script>
+  <script src="/static/tree_view/abn_tree_directive.js"></script>
+  <link rel="stylesheet" href="/static/tree_view/abn_tree.css">
+  <script src="/static/controller.js"></script>
+  </head>
+
+  <body ng-controller="ArtifactController" style="margin:20px">
+    <table>
+      <tr>
+        <td style="vertical-align:top">
+          <table>
+            <tr>
+              <td style="vertical-align:top">
+                <button ng-click="artifact_tree.expand_all()" class="btn btn-default
+                btn-sm">Expand All</button><br /><br />
+                <button ng-click="artifact_tree.collapse_all()" class="btn btn-default btn-sm">Collapse All</button>
+              </td>
+              <td style="vertical-align:top">
+                <div style="width:450px;margin-left:70px;background:whitesmoke;border:1px solid lightgray;border-radius:5px;">
+                  <abn-tree tree-data="artifact_tree_data" tree-control="artifact_tree" on-select="artifact_tree_handler(branch)" expand-level="2"></abn-tree>
+                </div>
+              </td>
+              <td style="padding:20px;vertical-align:top;">
+                <div style="width:300px" class="alert alert-warning">{{ output }}</div>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+
+  </body>
+</html>
