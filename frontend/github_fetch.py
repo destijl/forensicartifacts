@@ -22,35 +22,35 @@ class GitHubFetch(webapp2.RequestHandler):
       return True
     return (datetime.now() - last_fetch) > MIN_FETCH_INTERVAL
 
-  def get(self):
+  def GetArtifacts(self):
     if not self.CheckThrottle():
-      self.response.write("Not retrieving due to throttle")
-      return
+      return (500, "Not retrieving due to throttle")
 
     result = urlfetch.fetch(ARTIFACTS_DIR, validate_certificate=True)
     if not result.status_code == 200:
-      self.response.status = result.status_code
-      return
+      return (result.status_code, "Error fetching %s from github" %
+              ARTIFACTS_DIR)
 
     dir_listing = json.loads(result.content)
     filenames = [x["name"] for x in dir_listing]
 
+    graph = artifact.ArtifactGraph()
     for artifactfile in filenames:
-      result = urlfetch.fetch(urlparse.urljoin(ARTIFACTS_DIR, artifactfile),
-                              validate_certificate=True)
+      url = urlparse.urljoin(ARTIFACTS_DIR, artifactfile)
+      result = urlfetch.fetch(url, validate_certificate=True)
 
       if not result.status_code == 200:
-        self.response.status = result.status_code
-        return
+        return (result.status_code, "Error fetching %s from github" % url)
 
       yaml_content = base64.decodestring(json.loads(result.content)["content"])
-      artifact = artifact.Artifact(parent=artifact.ARTIFACT_STORE_KEY,
+      artifact_obj = artifact.Artifact(parent=artifact.ARTIFACT_STORE_KEY,
                                    filename=artifactfile, content=yaml_content)
-      artifact.put()
+      artifact_obj.put()
 
     memcache.add("last_github_fetch_time", datetime.now())
-    self.response.write("Retrieved artifact files: %s" % filenames)
+    return (200, "Retrieved artifact files: %s" % filenames)
 
-
-
-
+  def get(self):
+    response_code, response_content = self.GetArtifacts()
+    self.response.status = response_code
+    self.response.write(response_content)
