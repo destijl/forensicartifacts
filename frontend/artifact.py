@@ -1,3 +1,4 @@
+import itertools
 import re
 import json
 import sys
@@ -18,6 +19,11 @@ class Artifact(ndb.Model):
   date = ndb.DateTimeProperty(auto_now_add=True)
 
 
+#    TODO: add another method to get artifact list dependencies, see
+#    KasperskyCareto artifacts
+#    Group the tree by OS
+
+
 class ArtifactGraph(networkx.DiGraph):
 
   def __init__(self, *args, **kwargs):
@@ -35,21 +41,65 @@ class ArtifactGraph(networkx.DiGraph):
     self.InitializeFromYAMLBuffers([x.content for x in results])
 
   def InitializeFromYAMLBuffers(self, yaml_buffers):
+    """Create the tree from a list of yaml buffers.
+
+    All buffers must be passed in at once to allow a valid dependency tree to be
+    created.
+    """
     raw_list = []
     for yaml_buffer in yaml_buffers:
       raw_list.extend(list(yaml.safe_load_all(yaml_buffer)))
 
     self.UpdateProvidesMap(raw_list)
 
+    # Use this lookup dict to check os conditions so we don't create
+    # dependencies across operating system boundaries
+    artifact_lookup_dict = {}
+    for artifact_dict in raw_list:
+      artifact_lookup_dict[artifact_dict["name"]] = artifact_dict
+
     for artifact_dict in raw_list:
       self.add_node(artifact_dict["name"])
       for dependency in self.GetArtifactPathDependencies(
           artifact_dict["collectors"]):
         for dep in self.provides_map[dependency]:
-          self.add_edge(artifact_dict["name"], dep)
+          dep_os = set(artifact_lookup_dict[dep]["supported_os"])
+          if set(artifact_dict["supported_os"]).intersection(dep_os):
+            self.add_edge(artifact_dict["name"], dep)
 
-  def GetJSONDictOfDicts(self):
-    return json.dumps(networkx.to_dict_of_dicts(self))
+    # Take all nodes who have no predecessors and put them under a root node so
+    # we have a real tree
+    for nodename, in_degree in self.in_degree().iteritems():
+      if in_degree == 0:
+        self.add_edge("Artifacts", nodename)
+
+  def GetJSONTree(self, root, attrs={'children': 'children', 'id': 'label'}):
+    """Based on networkx.readwrite.json_graph.tree_data()
+
+    Unlike the original we allow non-tree graphs because our leaves can have
+    multiple predecessors.  i.e. many nodes require SystemRoot.
+    """
+    id_ = attrs['id']
+    children = attrs['children']
+    if id_ == children:
+        raise nx.NetworkXError('Attribute names are not unique.')
+
+    def add_children(n, self):
+        nbrs = self[n]
+        if len(nbrs) == 0:
+            return []
+        children_ = []
+        for child in nbrs:
+            d = dict(itertools.chain(self.node[child].items(), [(id_, child)]))
+            c = add_children(child, self)
+            if c:
+                d[children] = c
+            children_.append(d)
+        return children_
+
+    data = dict(itertools.chain(self.node[root].items(), [(id_, root)]))
+    data[children] = add_children(root, self)
+    return json.dumps([data])
 
   def GetArtifactPathDependencies(self, collectors):
     """Return a set of knowledgebase path dependencies.
@@ -70,7 +120,6 @@ class ArtifactGraph(networkx.DiGraph):
           for match in INTERPOLATED_REGEX.finditer(path):
             deps.add(match.group()[2:-2])   # Strip off %%.
     return deps
-
 
 
 

@@ -56,6 +56,7 @@ collectors:
       - '%%users.homedir%%/.config/chromium/*/Media Cache/*'
       - '%%users.homedir%%/.config/chromium/*/GPUCache/*'
   supported_os: [Linux]
+supported_os: [Windows, Darwin, Linux]
 labels: [Browser]
 urls: ['http://www.forensicswiki.org/wiki/Google_Chrome']
 ---
@@ -86,6 +87,7 @@ collectors:
       - '%%users.homedir%%/.config/chromium/*/Archived History'
       - '%%users.homedir%%/.config/chromium/*/History'
   supported_os: [Linux]
+supported_os: [Windows, Darwin, Linux]
 labels: [Browser]
 urls: ['http://www.forensicswiki.org/wiki/Google_Chrome']
 ---
@@ -104,6 +106,7 @@ collectors:
 - collector_type: FILE
   args: {path_list: ['%%users.homedir%%/.mozilla/firefox/*/places.sqlite']}
   supported_os: [Linux]
+supported_os: [Windows, Darwin, Linux]
 labels: [Browser]
 urls: ['http://www.forensicswiki.org/wiki/Mozilla_Firefox']
 ---
@@ -181,6 +184,7 @@ collectors:
 - collector_type: FILE
   args: {path_list: ['%%users.appdata%%\AppData\Roaming\Opera\Opera\global_history.dat']}
   supported_os: [Windows]
+supported_os: [Windows, Darwin, Linux]
 labels: [Browser]
 urls: ['http://www.forensicswiki.org/wiki/Opera']
 ---
