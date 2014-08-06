@@ -19,14 +19,15 @@ class Artifact(ndb.Model):
   date = ndb.DateTimeProperty(auto_now_add=True)
 
 
-#    TODO: add another method to get artifact list dependencies, see
-#    KasperskyCareto artifacts
-#    Group the tree by OS
-
-
 class ArtifactGraph(networkx.DiGraph):
 
+  # Hardcode these for now to hopefully make the node colors stay consistent
+  OS_GROUP_MAP = {"Darwin": 1, "Windows": 2, "Linux": 3,
+               "Darwin,Windows": 4, "Darwin,Linux": 5,
+               "Darwin,Linux,Windows": 6, "Linux,Windows": 7}
+
   def __init__(self, *args, **kwargs):
+    self.top_level = kwargs.pop("top_level", None)
     super(ArtifactGraph, self).__init__(*args, **kwargs)
     self.provides_map = {}
 
@@ -59,7 +60,8 @@ class ArtifactGraph(networkx.DiGraph):
       artifact_lookup_dict[artifact_dict["name"]] = artifact_dict
 
     for artifact_dict in raw_list:
-      self.add_node(artifact_dict["name"])
+      self.add_node(artifact_dict["name"], data_dict=artifact_dict)
+
       for dependency in self.GetArtifactPathDependencies(
           artifact_dict["collectors"]):
         for dep in self.provides_map[dependency]:
@@ -67,11 +69,14 @@ class ArtifactGraph(networkx.DiGraph):
           if set(artifact_dict["supported_os"]).intersection(dep_os):
             self.add_edge(artifact_dict["name"], dep)
 
-    # Take all nodes who have no predecessors and put them under a root node so
-    # we have a real tree
-    for nodename, in_degree in self.in_degree().iteritems():
-      if in_degree == 0:
-        self.add_edge("Artifacts", nodename)
+    # If top_level is set, take all nodes who have no predecessors and create a
+    # root node with that name so we have an overall parent
+    if self.top_level:
+      for nodename, in_degree in self.in_degree().iteritems():
+        if in_degree == 0:
+          self.add_edge(self.top_level, nodename)
+      self.node[self.top_level]["data_dict"] = {"supported_os": [
+          "Darwin", "Linux", "Windows"]}
 
   def GetJSONTree(self, root, attrs={'children': 'children', 'id': 'label'}):
     """Based on networkx.readwrite.json_graph.tree_data()
@@ -82,7 +87,7 @@ class ArtifactGraph(networkx.DiGraph):
     id_ = attrs['id']
     children = attrs['children']
     if id_ == children:
-        raise nx.NetworkXError('Attribute names are not unique.')
+        raise networkx.NetworkXError('Attribute names are not unique.')
 
     def add_children(n, self):
         nbrs = self[n]
@@ -100,6 +105,35 @@ class ArtifactGraph(networkx.DiGraph):
     data = dict(itertools.chain(self.node[root].items(), [(id_, root)]))
     data[children] = add_children(root, self)
     return json.dumps([data])
+
+  def GetD3JSON(self, group=None):
+    """Converts a NetworkX Graph to D3.js JSON formatted dictionary"""
+    ints_graph = networkx.convert_node_labels_to_integers(
+        self, label_attribute="name")
+
+    nodes_list = []
+    os_group_map = {}
+    next_int = 1
+    for nodenum in ints_graph.nodes():
+      artifact_name = ints_graph.node[nodenum]["name"]
+
+      # Use supported_os as the node color
+      supported_os_list = self.node[artifact_name]["data_dict"]["supported_os"]
+      supported_os_list.sort()
+
+      group = self.OS_GROUP_MAP[",".join(supported_os_list)]
+      nodes_list.append(dict(name=artifact_name,
+                             group=group))
+
+    graph_edges = ints_graph.edges(data=True)
+
+    # Build up edge dictionary in JSON format
+    json_edges = list()
+    for j, k, w in graph_edges:
+      json_edges.append({'source' : j, 'target' : k, 'value': 1})
+
+    graph_json = {"links": json_edges, "nodes": nodes_list}
+    return json.dumps(graph_json)
 
   def GetArtifactPathDependencies(self, collectors):
     """Return a set of knowledgebase path dependencies.
@@ -120,9 +154,3 @@ class ArtifactGraph(networkx.DiGraph):
           for match in INTERPOLATED_REGEX.finditer(path):
             deps.add(match.group()[2:-2])   # Strip off %%.
     return deps
-
-
-
-
-
-

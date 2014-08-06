@@ -15,9 +15,11 @@ handlers:
     static_dir: static
   - url: /githubfetch
     script: frontend.application
-    login: admin
+  - url: /tree
+    static_files: static/tree.html
+    upload: static/tree.html
   - url: /
-    static_files: static/index.html
-    upload: static/index.html
+    static_files: static/d3.html
+    upload: static/d3.html
   - url: /.*
     script: frontend.application
